@@ -1,20 +1,30 @@
-import pyrebase
+import requests
 import streamlit as st
 
-firebase_config = st.secrets["firebase"]
-firebase = pyrebase.initialize_app(firebase_config)
-auth = firebase.auth()
+API_KEY = st.secrets["firebase"]["apiKey"]  # Put your Firebase Web API Key here
 
 def login_user(email, password):
-    try:
-        user = auth.sign_in_with_email_and_password(email, password)
-        return user
-    except:
+    url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={API_KEY}"
+    payload = {
+        "email": email,
+        "password": password,
+        "returnSecureToken": True
+    }
+    response = requests.post(url, json=payload)
+    if response.status_code == 200:
+        return response.json()  # Contains idToken, refreshToken, localId, etc.
+    else:
         return None
 
 def signup_user(email, password):
-    try:
-        user = auth.create_user_with_email_and_password(email, password)
-        return user
-    except:
+    url = f"https://identitytoolkit.googleapis.com/v1/accounts:signUp?key={API_KEY}"
+    payload = {
+        "email": email,
+        "password": password,
+        "returnSecureToken": True
+    }
+    response = requests.post(url, json=payload)
+    if response.status_code == 200:
+        return response.json()
+    else:
         return None

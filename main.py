@@ -1,11 +1,10 @@
 import streamlit as st
 import numpy as np
-from tensorflow.keras.models import load_model
 from PIL import Image
-import cv2
+from tensorflow.keras.models import load_model
 import time
 
-# Page configuration
+# ---------------------- Page Configuration ----------------------
 st.set_page_config(
     page_title="Face Mask Detection",
     page_icon="😷",
@@ -13,9 +12,13 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Custom CSS styling with dark theme
-st.markdown("""
-<style>
+# ---------------------- Auth Check ----------------------
+if "authenticated" not in st.session_state or not st.session_state.authenticated:
+    st.warning("Please log in to access the app.")
+    st.stop()
+
+# ---------------------- Custom CSS Styling ----------------------
+st.markdown("""<style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
     
     .main {
@@ -244,29 +247,30 @@ st.markdown("""
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
-</style>
-""", unsafe_allow_html=True)
+</style>""", 
+unsafe_allow_html=True)
 
-# Load model and class labels
+# ---------------------- Model & Class Labels ----------------------
 @st.cache_resource
 def load_mask_model():
-    return load_model('saved_model/mask_detector_model.h5')
+    return load_model('saved_model/mask_detector_model.h5',compile=False)
 
 model = load_mask_model()
 classes = ['With Mask', 'Without Mask', 'Improper Mask']
 
-# Hero Section - Simplified
-st.markdown("""
+# ---------------------- Hero Section ----------------------
+st.markdown(f"""
 <div class="hero-container">
     <div class="hero-title">Face Mask Detection</div>
     <div class="hero-subtitle">
         Detect proper mask usage with AI
     </div>
+    <p style="color: #aaa;">Logged in as: <strong>{st.session_state.email}</strong></p>
 </div>
 """, unsafe_allow_html=True)
 
-# Mode Selection - Simplified
-col1, col2 = st.columns(2)
+# ---------------------- Mode Selection ----------------------
+col1, col2, col3 = st.columns([1, 1, 1])
 
 with col1:
     upload_selected = st.button("📁 Upload Image", key="upload_btn")
@@ -274,7 +278,12 @@ with col1:
 with col2:
     camera_selected = st.button("📸 Use Camera", key="camera_btn")
 
-# Initialize session state
+with col3:
+    if st.button("🚪 Logout"):
+        st.session_state.authenticated = False
+        st.session_state.email = ""
+        st.switch_page("pages/auth.py")
+
 if 'mode' not in st.session_state:
     st.session_state.mode = 'upload'
 
@@ -283,13 +292,13 @@ if upload_selected:
 elif camera_selected:
     st.session_state.mode = 'camera'
 
+# ---------------------- Utility Functions ----------------------
 def preprocess(img):
     img = img.resize((128, 128))
     img = np.expand_dims(np.array(img) / 255.0, axis=0)
     return img
 
 def display_prediction(label, confidence):
-    # Determine prediction class for styling
     if label == 'With Mask':
         prediction_class = 'prediction-with-mask'
         emoji = '✅'
@@ -318,73 +327,99 @@ def display_prediction(label, confidence):
     </div>
     """, unsafe_allow_html=True)
 
-# Upload Image Mode
+# ---------------------- Upload Mode ----------------------
 if st.session_state.mode == 'upload':
-    st.markdown("""
-    <div class="upload-area">
-        <h3>Upload an image</h3>
-        <p>Drag and drop or click to browse</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    uploaded_file = st.file_uploader(
-        "Choose an image file", 
-        type=['jpg', 'png', 'jpeg'],
-        label_visibility="collapsed"
-    )
-    
+    st.markdown("""<div class="upload-area"><h3>Upload an image</h3><p>Drag and drop or click to browse</p></div>""", unsafe_allow_html=True)
+    uploaded_file = st.file_uploader("Choose an image file", type=['jpg', 'png', 'jpeg'], label_visibility="collapsed")
     if uploaded_file:
-        # Show loading spinner
         with st.spinner('Processing...'):
-            time.sleep(0.5)  # Slight delay for animation effect
-            
+            time.sleep(0.5)
         col1, col2 = st.columns([1, 1])
-        
         with col1:
             image = Image.open(uploaded_file).convert('RGB')
             st.image(image, use_container_width=True)
-        
         with col2:
             img = preprocess(image)
             prediction = model.predict(img)
             label = classes[np.argmax(prediction)]
             confidence = np.max(prediction) * 100
-            
             display_prediction(label, confidence)
 
-# Camera Mode
+# ---------------------- Camera Mode ----------------------
 elif st.session_state.mode == 'camera':
-    st.markdown("""
-    <div class="upload-area">
-        <h3>Camera Detection</h3>
-        <p>Take a photo to analyze</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
+    st.markdown("""<div class="upload-area"><h3>Camera Detection</h3><p>Take a photo to analyze</p></div>""", unsafe_allow_html=True)
     camera_img = st.camera_input("Take a photo", label_visibility="collapsed")
-    
     if camera_img:
-        # Show loading spinner
         with st.spinner('Analyzing...'):
-            time.sleep(0.5)  # Slight delay for animation effect
-            
+            time.sleep(0.5)
         col1, col2 = st.columns([1, 1])
-        
         with col1:
             image = Image.open(camera_img).convert('RGB')
             st.image(image, use_container_width=True)
-        
         with col2:
             img = preprocess(image)
             prediction = model.predict(img)
             label = classes[np.argmax(prediction)]
             confidence = np.max(prediction) * 100
-            
             display_prediction(label, confidence)
 
-# Simple Footer
-st.markdown("""
-<div class="footer">
-    Built with Streamlit and TensorFlow
-</div>
-""", unsafe_allow_html=True)
+# ---------------------- Footer ----------------------
+st.markdown("""<div class="footer">Built with Streamlit and TensorFlow</div>""", unsafe_allow_html=True)
+# ---------------------- Load Model ----------------------
+@st.cache_resource
+def load_mask_model():
+    return load_model("saved_model/mask_detector_model.h5")  # Adjust path if needed
+
+model = load_mask_model()
+
+# ---------------------- Upload Section ----------------------
+st.markdown('<div class="hero-container">', unsafe_allow_html=True)
+st.markdown('<div class="hero-title">Face Mask Detection</div>', unsafe_allow_html=True)
+st.markdown('<div class="hero-subtitle">Upload an image to detect mask status.</div>', unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
+
+uploaded_file = st.file_uploader("📷 Upload Image", type=["jpg", "jpeg", "png"])
+
+if uploaded_file is not None:
+    image = Image.open(uploaded_file).convert("RGB")
+    st.image(image, caption="Uploaded Image", use_column_width=True)
+
+    # Preprocess the image
+    image = image.resize((224, 224))  # adjust if your model needs different size
+    img_array = np.array(image) / 255.0
+    img_array = np.expand_dims(img_array, axis=0)
+
+    with st.spinner("Analyzing..."):
+        time.sleep(1)  # simulate loading
+        prediction = model.predict(img_array)[0]
+
+        labels = ["With Mask", "Without Mask", "Improper Mask"]
+        predicted_index = np.argmax(prediction)
+        predicted_label = labels[predicted_index]
+        confidence = prediction[predicted_index] * 100
+
+        # Display prediction
+        st.markdown('<div class="prediction-container">', unsafe_allow_html=True)
+
+        if predicted_label == "With Mask":
+            st.markdown(f'<div class="prediction-with-mask">😷 {predicted_label}</div>', unsafe_allow_html=True)
+        elif predicted_label == "Without Mask":
+            st.markdown(f'<div class="prediction-without-mask">🚫 {predicted_label}</div>', unsafe_allow_html=True)
+        else:
+            st.markdown(f'<div class="prediction-improper-mask">⚠️ {predicted_label}</div>', unsafe_allow_html=True)
+
+        st.markdown(f"""
+        <div class="confidence-bar">
+            <div class="confidence-fill" style="width: {confidence:.2f}%;"></div>
+        </div>
+        <p>Confidence: {confidence:.2f}%</p>
+        """, unsafe_allow_html=True)
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
+# ---------------------- Logout Button ----------------------
+if st.button("Logout"):
+    st.session_state.authenticated = False
+    st.session_state.email = ""
+    st.session_state.id_token = ""
+    st.rerun()
